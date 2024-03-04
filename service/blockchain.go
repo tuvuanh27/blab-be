@@ -31,11 +31,12 @@ type IBlockchainService interface {
 }
 
 type blockchainService struct {
-	chain        Chain
-	blockService IBlockService
+	chain                  Chain
+	blockService           IBlockService
+	transactionPoolService ITransactionPoolService
 }
 
-func NewBlockchainService(blockService IBlockService, chain Chain) IBlockchainService {
+func NewBlockchainService(blockService IBlockService, transactionPoolService ITransactionPoolService, chain Chain) IBlockchainService {
 	if len(chain.Blocks) == 0 {
 		chain = Chain{
 			Blocks: []Block{blockService.Genesis()},
@@ -46,8 +47,9 @@ func NewBlockchainService(blockService IBlockService, chain Chain) IBlockchainSe
 	}
 
 	return &blockchainService{
-		chain:        chain,
-		blockService: blockService,
+		chain:                  chain,
+		blockService:           blockService,
+		transactionPoolService: transactionPoolService,
 	}
 }
 
@@ -70,7 +72,8 @@ func (bls *blockchainService) AddBlock(block Block) {
 }
 
 func (bls *blockchainService) IsValidChain(chain Chain) bool {
-	if reflect.DeepEqual(chain.Blocks[0], bls.blockService.Genesis()) {
+	if !reflect.DeepEqual(chain.Blocks[0], bls.blockService.Genesis()) {
+		log.Println("Genesis block is invalid")
 		return false
 	}
 
@@ -90,10 +93,12 @@ func (bls *blockchainService) IsValidChain(chain Chain) bool {
 
 		validHash := util.CryptoHash([]byte(strconv.FormatInt(blockNumber, 10) + lastHash + string(rune(nonce)) + strconv.FormatInt(difficulty, 10) + strconv.FormatInt(timestamp, 10) + miner + string(data)))
 		if strings.Compare(validHash.Hex(), chain.Blocks[i].Hash) != 0 {
+			log.Println("Invalid hash at block ", i)
 			return false
 		}
 
 		if math.Abs(float64(lastDifficulty-difficulty)) > 1 {
+			log.Println("Invalid difficulty at block ", i)
 			return false
 		}
 	}
@@ -128,15 +133,15 @@ func (bls *blockchainService) IsValidTransactionData(chain Chain) bool {
 
 func (bls *blockchainService) ReplaceChain(chain Chain) {
 	if len(chain.Blocks) <= len(bls.chain.Blocks) {
-		log.Fatalln("Received chain is not longer than the current chain")
+		log.Println("Received chain is not longer than the current chain")
 		return
 	}
 
 	if !bls.IsValidChain(chain) {
-		log.Fatalln("Received chain is invalid")
+		log.Println("Received chain is invalid")
 		return
 	}
-
+	log.Println("Replace chain")
 	bls.chain = chain
 }
 
@@ -171,18 +176,28 @@ func (bls *blockchainService) SyncNode(pubsub *redis.PubSub) {
 			log.Fatalln(err)
 		}
 
-		if msg.Channel == redisPkg.ChannelKey {
+		if strings.Compare(msg.Channel, redisPkg.ChannelSyncNodeKey) == 0 {
+			log.Println("Received message: ", msg.Payload, " from channel: ", msg.Channel)
+
 			var chain Chain
 			err = json.Unmarshal([]byte(msg.Payload), &chain)
 			if err != nil {
 				log.Fatalln(err)
 			}
 
-			if len(chain.Blocks) > len(bls.chain.Blocks) {
-				if bls.IsValidChain(chain) {
-					bls.ReplaceChain(chain)
-				}
+			bls.ReplaceChain(chain)
+		}
+
+		if strings.Compare(msg.Channel, redisPkg.ChannelSyncTransactionKey) == 0 {
+			log.Println("Received message: ", msg.Payload, " from channel: ", msg.Channel)
+
+			var transaction Transaction
+			err = json.Unmarshal([]byte(msg.Payload), &transaction)
+			if err != nil {
+				log.Fatalln(err)
 			}
+
+			bls.transactionPoolService.SetTransaction(transaction)
 		}
 	}
 

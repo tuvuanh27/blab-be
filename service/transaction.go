@@ -1,7 +1,9 @@
 package service
 
 import (
+	"blockchain-backend/infras/redis"
 	"blockchain-backend/util"
+	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"strconv"
@@ -104,6 +106,8 @@ func (ts *transactionService) CreateTransaction(from string, to string, value in
 	}
 
 	transaction.Hash = ts.TxHash(transaction)
+	transactionBytes, _ := json.Marshal(transaction)
+	redis.RedisService.Publish(redis.ChannelSyncTransactionKey, string(transactionBytes))
 
 	return transaction, nil
 }

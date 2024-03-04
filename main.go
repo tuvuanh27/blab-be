@@ -57,11 +57,11 @@ func main() {
 	transactionSvc := service.NewTransactionService()
 	transactionPoolSvc := service.NewTransactionPoolService(transactionSvc)
 	blockSvc := service.NewBlockService(transactionPoolSvc)
-	blockChainSvc := service.NewBlockchainService(blockSvc, chain)
+	blockChainSvc := service.NewBlockchainService(blockSvc, transactionPoolSvc, chain)
 
 	// sync node
 	go func() {
-		blockChainSvc.SyncNode(redis.RedisService.Subscribe(redis.ChannelKey))
+		blockChainSvc.SyncNode(redis.RedisService.Subscribe(redis.ChannelSyncNodeKey))
 	}()
 
 	walletController := controller.NewWalletController(service.NewWalletService(blockChainSvc))

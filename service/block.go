@@ -126,7 +126,7 @@ func (bs *blockService) MineBlock(lastBlock Block, transactions []Transaction, m
 	blockChainBytes, _ := json.Marshal(chain)
 	redis.RedisService.Set(redis.ChainKey, string(blockChainBytes))
 
-	redis.RedisService.Publish(redis.ChannelKey, string(blockChainBytes))
+	redis.RedisService.Publish(redis.ChannelSyncNodeKey, string(blockChainBytes))
 
 	return newBlock, nil
 }

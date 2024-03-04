@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	ChainKey   = "CHAIN"
-	ChannelKey = "BLOCKCHAIN"
+	ChainKey                  = "CHAIN"
+	ChannelSyncNodeKey        = "BLOCKCHAIN"
+	ChannelSyncTransactionKey = "TRANSACTION"
 )
 
 var Ctx = context.Background()

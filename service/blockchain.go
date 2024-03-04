@@ -1,6 +1,7 @@
 package service
 
 import (
+	redisPkg "blockchain-backend/infras/redis"
 	"blockchain-backend/util"
 	"encoding/json"
 	"fmt"
@@ -23,7 +24,7 @@ type IBlockchainService interface {
 	AddBlock(block Block)
 	IsValidChain(chain Chain) bool
 	IsValidTransactionData(chain Chain) bool
-	ReplaceChain(chain Chain, validTransactions []Transaction, onSuccess bool)
+	ReplaceChain(chain Chain)
 	BlockLength() int
 	GetTransactionHistory(address string) []Transaction
 	SyncNode(pubsub *redis.PubSub)
@@ -36,7 +37,12 @@ type blockchainService struct {
 
 func NewBlockchainService(blockService IBlockService, chain Chain) IBlockchainService {
 	if len(chain.Blocks) == 0 {
-		chain.Blocks = append(chain.Blocks, blockService.Genesis())
+		chain = Chain{
+			Blocks: []Block{blockService.Genesis()},
+		}
+
+		blockChainBytes, _ := json.Marshal(chain)
+		redisPkg.RedisService.Set(redisPkg.ChainKey, string(blockChainBytes))
 	}
 
 	return &blockchainService{
@@ -120,8 +126,7 @@ func (bls *blockchainService) IsValidTransactionData(chain Chain) bool {
 	return true
 }
 
-// ReplaceChain TODO: Implement this function, call when subcribe to new block
-func (bls *blockchainService) ReplaceChain(chain Chain, validTransactions []Transaction, onSuccess bool) {
+func (bls *blockchainService) ReplaceChain(chain Chain) {
 	if len(chain.Blocks) <= len(bls.chain.Blocks) {
 		log.Fatalln("Received chain is not longer than the current chain")
 		return
@@ -132,6 +137,7 @@ func (bls *blockchainService) ReplaceChain(chain Chain, validTransactions []Tran
 		return
 	}
 
+	bls.chain = chain
 }
 
 func (bls *blockchainService) BlockLength() int {
@@ -152,5 +158,32 @@ func (bls *blockchainService) GetTransactionHistory(address string) []Transactio
 }
 
 func (bls *blockchainService) SyncNode(pubsub *redis.PubSub) {
+	defer func(pubsub *redis.PubSub) {
+		err := pubsub.Close()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}(pubsub)
+
+	for {
+		msg, err := pubsub.ReceiveMessage(redisPkg.Ctx)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		if msg.Channel == redisPkg.ChannelKey {
+			var chain Chain
+			err = json.Unmarshal([]byte(msg.Payload), &chain)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			if len(chain.Blocks) > len(bls.chain.Blocks) {
+				if bls.IsValidChain(chain) {
+					bls.ReplaceChain(chain)
+				}
+			}
+		}
+	}
 
 }

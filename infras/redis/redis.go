@@ -12,7 +12,7 @@ var (
 	ChannelKey = "BLOCKCHAIN"
 )
 
-var ctx = context.Background()
+var Ctx = context.Background()
 
 type IRedis interface {
 	Get(key string) string
@@ -38,7 +38,7 @@ func Connect() *redis.Client {
 	})
 
 	// Ping the Redis server and check if any errors occurred
-	_, err := redisClient.Ping(ctx).Result()
+	_, err := redisClient.Ping(Ctx).Result()
 	if err != nil {
 		panic(err)
 	}
@@ -49,7 +49,7 @@ func Connect() *redis.Client {
 }
 
 func (rs *redisService) Get(key string) string {
-	val, err := rs.client.Get(ctx, key).Result()
+	val, err := rs.client.Get(Ctx, key).Result()
 	if err != nil {
 		return ""
 	}
@@ -57,25 +57,21 @@ func (rs *redisService) Get(key string) string {
 }
 
 func (rs *redisService) Set(key string, value string) {
-	err := rs.client.Set(ctx, key, value, 0).Err()
+	err := rs.client.Set(Ctx, key, value, 0).Err()
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (rs *redisService) Publish(channel string, message string) {
-	err := rs.client.Publish(ctx, channel, message).Err()
+	err := rs.client.Publish(Ctx, channel, message).Err()
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (rs *redisService) Subscribe(channel string) *redis.PubSub {
-	pubsub := rs.client.Subscribe(ctx, channel)
-	_, err := pubsub.Receive(ctx)
-	if err != nil {
-		panic(err)
-	}
+	pubsub := rs.client.Subscribe(Ctx, channel)
 	return pubsub
 }
 

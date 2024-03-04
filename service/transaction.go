@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -107,6 +108,7 @@ func (ts *transactionService) CreateTransaction(from string, to string, value in
 
 	transaction.Hash = ts.TxHash(transaction)
 	transactionBytes, _ := json.Marshal(transaction)
+	log.Println("Publishing transaction to redis", transaction)
 	redis.RedisService.Publish(redis.ChannelSyncTransactionKey, string(transactionBytes))
 
 	return transaction, nil

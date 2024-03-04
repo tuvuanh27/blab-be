@@ -175,9 +175,9 @@ func (bls *blockchainService) SyncNode(pubsub *redis.PubSub) {
 		if err != nil {
 			log.Fatalln(err)
 		}
+		log.Println("Received message: ", msg.Payload, " from channel: ", msg.Channel)
 
 		if strings.Compare(msg.Channel, redisPkg.ChannelSyncNodeKey) == 0 {
-			log.Println("Received message: ", msg.Payload, " from channel: ", msg.Channel)
 
 			var chain Chain
 			err = json.Unmarshal([]byte(msg.Payload), &chain)
@@ -189,7 +189,6 @@ func (bls *blockchainService) SyncNode(pubsub *redis.PubSub) {
 		}
 
 		if strings.Compare(msg.Channel, redisPkg.ChannelSyncTransactionKey) == 0 {
-			log.Println("Received message: ", msg.Payload, " from channel: ", msg.Channel)
 
 			var transaction Transaction
 			err = json.Unmarshal([]byte(msg.Payload), &transaction)

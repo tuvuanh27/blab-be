@@ -14,19 +14,22 @@ type ITransactionController interface {
 	createTransaction() func(c *gin.Context)
 	getTransactionPool() func(c *gin.Context)
 	getTransactionHistory() func(c *gin.Context)
+	getTransaction() func(c *gin.Context)
 }
 
 type transactionController struct {
 	transactionSvc     service.ITransactionService
 	transactionPoolSvc service.ITransactionPoolService
 	blockchainService  service.IBlockchainService
+	walletSvc          service.IWalletService
 }
 
-func NewTransactionController(transactionSvc service.ITransactionService, transactionPoolSvc service.ITransactionPoolService, blockchainService service.IBlockchainService) ITransactionController {
+func NewTransactionController(transactionSvc service.ITransactionService, transactionPoolSvc service.ITransactionPoolService, blockchainService service.IBlockchainService, walletSvc service.IWalletService) ITransactionController {
 	return &transactionController{
 		transactionSvc:     transactionSvc,
 		transactionPoolSvc: transactionPoolSvc,
 		blockchainService:  blockchainService,
+		walletSvc:          walletSvc,
 	}
 }
 
@@ -34,6 +37,8 @@ func (tc *transactionController) SetupRoutes(group *gin.RouterGroup) {
 	group.POST("/", tc.createTransaction())
 	group.POST("/sign", tc.signTransaction())
 	group.GET("/pool", tc.getTransactionPool())
+	group.GET("/history/:address", tc.getTransactionHistory())
+	group.GET("/:hash", tc.getTransaction())
 }
 
 func (tc *transactionController) signTransaction() func(c *gin.Context) {
@@ -43,6 +48,13 @@ func (tc *transactionController) signTransaction() func(c *gin.Context) {
 		if err := c.ShouldBindJSON(&body); err != nil {
 			c.JSON(400, gin.H{
 				"error": err.Error(),
+			})
+			return
+		}
+
+		if body.Value > tc.walletSvc.CalculateBalance(body.From) {
+			c.JSON(400, gin.H{
+				"error": "Insufficient balance",
 			})
 			return
 		}
@@ -108,6 +120,30 @@ func (tc *transactionController) getTransactionHistory() func(c *gin.Context) {
 		}
 		c.JSON(200, gin.H{
 			"data": tc.blockchainService.GetTransactionHistory(address),
+		})
+	}
+}
+
+func (tc *transactionController) getTransaction() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		txHash := c.Param("hash")
+		if txHash == "" {
+			c.JSON(400, gin.H{
+				"error": "transaction hash is required",
+			})
+			return
+		}
+
+		transaction, err := tc.blockchainService.GetTransaction(txHash)
+		if err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"data": transaction,
 		})
 	}
 }

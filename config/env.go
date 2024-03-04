@@ -3,7 +3,7 @@ package config
 import "github.com/spf13/viper"
 
 type Config struct {
-	Port     string `env:"PORT" envDefault:"8080"`
+	Port     string `env:"PORT"`
 	RedisUrl string `env:"REDIS_URL"`
 }
 

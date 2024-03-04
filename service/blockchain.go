@@ -27,6 +27,7 @@ type IBlockchainService interface {
 	ReplaceChain(chain Chain)
 	BlockLength() int
 	GetTransactionHistory(address string) []Transaction
+	GetTransaction(transactionHash string) (Transaction, error)
 	SyncNode(pubsub *redis.PubSub)
 }
 
@@ -160,6 +161,17 @@ func (bls *blockchainService) GetTransactionHistory(address string) []Transactio
 	}
 
 	return transactions
+}
+
+func (bls *blockchainService) GetTransaction(transactionHash string) (Transaction, error) {
+	for _, block := range bls.chain.Blocks {
+		for _, transaction := range block.Transactions {
+			if strings.Compare(transaction.Hash, transactionHash) == 0 {
+				return transaction, nil
+			}
+		}
+	}
+	return Transaction{}, fmt.Errorf("transaction not found")
 }
 
 func (bls *blockchainService) SyncNode(pubsub *redis.PubSub) {

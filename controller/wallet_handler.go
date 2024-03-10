@@ -2,7 +2,10 @@ package controller
 
 import (
 	"blockchain-backend/service"
+	"blockchain-backend/util"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"strconv"
 )
 
 type IWalletController interface {
@@ -12,12 +15,14 @@ type IWalletController interface {
 }
 
 type walletController struct {
-	walletSvc service.IWalletService
+	walletSvc          service.IWalletService
+	transactionPoolSvc service.ITransactionPoolService
 }
 
-func NewWalletController(walletService service.IWalletService) IWalletController {
+func NewWalletController(walletService service.IWalletService, transactionPoolSvc service.ITransactionPoolService) IWalletController {
 	return &walletController{
-		walletSvc: walletService,
+		walletSvc:          walletService,
+		transactionPoolSvc: transactionPoolSvc,
 	}
 }
 
@@ -36,6 +41,17 @@ func (wc *walletController) generateKeyPair() func(c *gin.Context) {
 			return
 		}
 
+		// add transaction send 1000 to keyPair.Address
+		transaction := service.Transaction{
+			From:      common.Address{}.Hex(),
+			To:        keyPair.Address,
+			Value:     1000,
+			Data:      "",
+			Timestamp: 0,
+		}
+
+		transaction.Hash = util.CryptoHash([]byte(transaction.From + transaction.To + strconv.FormatInt(transaction.Value, 10) + transaction.Data + strconv.FormatInt(transaction.Timestamp, 10))).Hex()
+		wc.transactionPoolSvc.SetTransaction(transaction)
 		c.JSON(200, gin.H{
 			"data": keyPair,
 		})

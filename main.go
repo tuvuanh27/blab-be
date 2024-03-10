@@ -75,9 +75,9 @@ func main() {
 		blockChainSvc.SyncNode(redis.RedisService.Subscribe(redis.ChannelSyncNodeKey))
 	}()
 
-	walletController := controller.NewWalletController(walletSvc)
+	walletController := controller.NewWalletController(walletSvc, transactionPoolSvc)
 	transactionController := controller.NewTransactionController(transactionSvc, transactionPoolSvc, blockChainSvc, walletSvc)
-	blockController := controller.NewBlockController(blockSvc, blockChainSvc, transactionPoolSvc)
+	blockController := controller.NewBlockController(blockSvc, blockChainSvc, transactionPoolSvc, transactionSvc)
 
 	walletGroup := engine.Group("/wallet")
 	transactionGroup := engine.Group("/transaction")

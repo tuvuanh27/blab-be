@@ -18,13 +18,15 @@ type blockController struct {
 	blockSvc           service.IBlockService
 	blockChainSvc      service.IBlockchainService
 	transactionPoolSvc service.ITransactionPoolService
+	transactionSvc     service.ITransactionService
 }
 
-func NewBlockController(blockSvc service.IBlockService, blockChainSvc service.IBlockchainService, transactionPoolSvc service.ITransactionPoolService) IBlockController {
+func NewBlockController(blockSvc service.IBlockService, blockChainSvc service.IBlockchainService, transactionPoolSvc service.ITransactionPoolService, transactionSvc service.ITransactionService) IBlockController {
 	return &blockController{
 		blockSvc:           blockSvc,
 		blockChainSvc:      blockChainSvc,
 		transactionPoolSvc: transactionPoolSvc,
+		transactionSvc:     transactionSvc,
 	}
 }
 
@@ -88,6 +90,8 @@ func (bc *blockController) mine() func(c *gin.Context) {
 			return
 		}
 		transactions := bc.transactionPoolSvc.GetTransactions()
+		rewardTransaction := bc.transactionSvc.RewardTransaction(body.MinerAddress)
+		transactions = append(transactions, rewardTransaction)
 		newBlock, err := bc.blockSvc.MineBlock(lastBlock, transactions, body.MinerAddress)
 		if err != nil {
 			c.JSON(400, gin.H{

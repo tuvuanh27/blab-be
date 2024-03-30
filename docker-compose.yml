@@ -6,6 +6,7 @@ services:
       - "6379:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+    restart: always
     volumes:
       - redis_data:/data
 
@@ -20,5 +21,6 @@ services:
       - .env
     depends_on:
       - redis
+    restart: always
 volumes:
   redis_data:

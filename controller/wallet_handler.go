@@ -33,6 +33,16 @@ func (wc *walletController) SetupRoutes(group *gin.RouterGroup) {
 
 func (wc *walletController) generateKeyPair() func(c *gin.Context) {
 	return func(c *gin.Context) {
+		// get initBalance from query
+		initBalance := c.Query("initBalance")
+		var balanceValue int64
+		/// check if initBalance is not empty
+		if initBalance != "" {
+			balanceValue, _ = strconv.ParseInt(initBalance, 10, 64)
+		} else {
+			balanceValue = 1000
+		}
+
 		keyPair, err := wc.walletSvc.GenerateKeyPair()
 		if err != nil {
 			c.JSON(500, gin.H{
@@ -45,7 +55,7 @@ func (wc *walletController) generateKeyPair() func(c *gin.Context) {
 		transaction := service.Transaction{
 			From:      common.Address{}.Hex(),
 			To:        keyPair.Address,
-			Value:     1000,
+			Value:     balanceValue,
 			Data:      "",
 			Timestamp: 0,
 		}

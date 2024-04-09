@@ -144,6 +144,11 @@ func (bls *blockchainService) ReplaceChain(chain Chain) {
 	}
 	log.Println("Replace chain")
 	bls.chain = chain
+
+	blockChainBytes, _ := json.Marshal(chain)
+	redisPkg.RedisService.Set(redisPkg.ChainKey, string(blockChainBytes))
+
+	redisPkg.RedisService.Publish(redisPkg.ChannelSyncNodeKey, string(blockChainBytes))
 }
 
 func (bls *blockchainService) BlockLength() int {

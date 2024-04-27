@@ -4,6 +4,7 @@ import (
 	"blockchain-backend/config"
 	"context"
 	"fmt"
+
 	"github.com/redis/go-redis/v9"
 )
 
@@ -11,6 +12,8 @@ var (
 	ChainKey                  = "CHAIN"
 	ChannelSyncNodeKey        = "BLOCKCHAIN"
 	ChannelSyncTransactionKey = "TRANSACTION"
+	CurrentBlockCrawledKey    = "CURRENT_BLOCK_CRAWLED"
+	HistoryTransactionsKey    = "HISTORY_TRANSACTIONS"
 )
 
 var Ctx = context.Background()
@@ -18,6 +21,8 @@ var Ctx = context.Background()
 type IRedis interface {
 	Get(key string) string
 	Set(key string, value string)
+	SetSet(key string, value string)
+	GetSet(key string) []string
 	Publish(channel string, message string)
 	Subscribe(channel string) *redis.PubSub
 }
@@ -62,6 +67,21 @@ func (rs *redisService) Set(key string, value string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (rs *redisService) SetSet(key string, value string) {
+	err := rs.client.SAdd(Ctx, key, value).Err()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (rs *redisService) GetSet(key string) []string {
+	val, err := rs.client.SMembers(Ctx, key).Result()
+	if err != nil {
+		return []string{}
+	}
+	return val
 }
 
 func (rs *redisService) Publish(channel string, message string) {

@@ -5,6 +5,7 @@ import "github.com/spf13/viper"
 type Config struct {
 	Port     string `env:"PORT"`
 	RedisUrl string `env:"REDIS_URL"`
+	Rpc      string `env:"RPC"`
 }
 
 func LoadEnv() (cfg Config, err error) {

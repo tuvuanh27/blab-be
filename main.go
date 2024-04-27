@@ -69,23 +69,35 @@ func main() {
 	blockSvc := service.NewBlockService(transactionPoolSvc)
 	blockChainSvc := service.NewBlockchainService(blockSvc, transactionPoolSvc, chain)
 	walletSvc := service.NewWalletService(blockChainSvc)
+	ganacheSvc := service.NewGanacheService()
 
 	// sync node
 	go func() {
 		blockChainSvc.SyncNode(redis.RedisService.Subscribe(redis.ChannelSyncNodeKey))
 	}()
 
+	// cron crawl block
+	go func() {
+		err := ganacheSvc.CrawlBlock()
+		if err != nil {
+			return
+		}
+	}()
+
 	walletController := controller.NewWalletController(walletSvc, transactionPoolSvc)
 	transactionController := controller.NewTransactionController(transactionSvc, transactionPoolSvc, blockChainSvc, walletSvc)
 	blockController := controller.NewBlockController(blockSvc, blockChainSvc, transactionPoolSvc, transactionSvc)
+	ganacheController := controller.NewGanacheController()
 
 	walletGroup := engine.Group("/wallet")
 	transactionGroup := engine.Group("/transaction")
 	blockGroup := engine.Group("/block")
+	ganacheGroup := engine.Group("/ganache")
 
 	walletController.SetupRoutes(walletGroup)
 	transactionController.SetupRoutes(transactionGroup)
 	blockController.SetupRoutes(blockGroup)
+	ganacheController.SetupRoutes(ganacheGroup)
 
 	if err := engine.Run(
 		":" + port,

@@ -35,7 +35,7 @@ func (bc *blockController) SetupRoutes(group *gin.RouterGroup) {
 	group.GET("/", bc.getBlocks())
 	group.GET("/:blockNumber", bc.getBlock())
 	group.POST("/mine", bc.mine())
-	group.POST("/replace", bc.replaceChain())
+	group.POST("/replace-chain", bc.replaceChain())
 
 }
 

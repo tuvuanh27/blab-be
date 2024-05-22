@@ -93,6 +93,12 @@ func (bc *blockController) mine() func(c *gin.Context) {
 			return
 		}
 		transactions := bc.transactionPoolSvc.GetTransactions()
+		if len(transactions) == 0 {
+			c.JSON(400, gin.H{
+				"error": "no transactions to mine",
+			})
+			return
+		}
 		rewardTransaction := bc.transactionSvc.RewardTransaction(body.MinerAddress)
 		transactions = append(transactions, rewardTransaction)
 		newBlock, err := bc.blockSvc.MineBlock(lastBlock, transactions, body.MinerAddress)

@@ -24,7 +24,7 @@ type IBlockchainService interface {
 	AddBlock(block Block)
 	IsValidChain(chain Chain) bool
 	IsValidTransactionData(chain Chain) bool
-	ReplaceChain(chain Chain)
+	ReplaceChain(chain Chain) error
 	BlockLength() int
 	GetTransactionHistory(address string) []Transaction
 	GetTransaction(transactionHash string) (Transaction, error)
@@ -132,15 +132,13 @@ func (bls *blockchainService) IsValidTransactionData(chain Chain) bool {
 	return true
 }
 
-func (bls *blockchainService) ReplaceChain(chain Chain) {
+func (bls *blockchainService) ReplaceChain(chain Chain) error {
 	if len(chain.Blocks) <= len(bls.chain.Blocks) {
-		log.Println("Received chain is not longer than the current chain")
-		return
+		return fmt.Errorf("received chain is not longer than the current chain")
 	}
 
 	if !bls.IsValidChain(chain) {
-		log.Println("Received chain is invalid")
-		return
+		return fmt.Errorf("received chain is invalid")
 	}
 	log.Println("Replace chain")
 	bls.chain = chain
@@ -149,6 +147,7 @@ func (bls *blockchainService) ReplaceChain(chain Chain) {
 	redisPkg.RedisService.Set(redisPkg.ChainKey, string(blockChainBytes))
 
 	redisPkg.RedisService.Publish(redisPkg.ChannelSyncNodeKey, string(blockChainBytes))
+	return nil
 }
 
 func (bls *blockchainService) BlockLength() int {
@@ -202,7 +201,10 @@ func (bls *blockchainService) SyncNode(pubsub *redis.PubSub) {
 				log.Fatalln(err)
 			}
 
-			bls.ReplaceChain(chain)
+			err = bls.ReplaceChain(chain)
+			if err != nil {
+				log.Fatalln(err)
+			}
 		}
 
 		if strings.Compare(msg.Channel, redisPkg.ChannelSyncTransactionKey) == 0 {

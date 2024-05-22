@@ -129,7 +129,13 @@ func (bc *blockController) replaceChain() func(c *gin.Context) {
 		}
 
 		if bc.blockChainSvc.IsValidChain(body) {
-			bc.blockChainSvc.ReplaceChain(body)
+			err := bc.blockChainSvc.ReplaceChain(body)
+			if err != nil {
+				c.JSON(400, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
 			bc.transactionPoolSvc.Clear()
 			c.JSON(200, gin.H{
 				"message": "chain replaced successfully",

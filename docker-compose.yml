@@ -15,8 +15,8 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${PORT}:${PORT}"
-    network_mode: host
+      - "8080:8080"
+#    network_mode: host
     env_file:
       - .env
     depends_on:
@@ -24,3 +24,6 @@ services:
     restart: always
 volumes:
   redis_data:
+networks:
+    blab_network:
+        driver: bridge

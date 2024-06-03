@@ -3,15 +3,15 @@ package config
 import "github.com/spf13/viper"
 
 type Config struct {
-	Port     string `env:"PORT"`
-	RedisUrl string `env:"REDIS_URL"`
-	Rpc      string `env:"RPC"`
+	Port     string `mapstructure:"PORT"`
+	RedisUrl string `mapstructure:"REDIS_URL"`
+	Rpc      string `mapstructure:"RPC"`
 }
 
 func LoadEnv() (cfg Config, err error) {
 	viper.SetConfigFile(".env")
 	viper.AutomaticEnv()
-	viper.SetConfigType("env")
+	viper.SetConfigType("")
 
 	err = viper.ReadInConfig()
 	if err != nil {

@@ -1,7 +1,6 @@
 package redis
 
 import (
-	"blockchain-backend/config"
 	"context"
 	"fmt"
 
@@ -42,7 +41,7 @@ func NewRedisService(client *redis.Client) IRedis {
 func Connect() *redis.Client {
 	// Connect to Redis
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: config.ConfigEnv.RedisUrl,
+		Addr: "redis:6379",
 	})
 
 	// Ping the Redis server and check if any errors occurred

@@ -6,7 +6,7 @@ import (
 )
 
 type IWalletService interface {
-	GenerateKeyPair() (util.KeyPair, error)
+	GenerateKeyPair(seedPhrase string) (util.KeyPair, error)
 	SignTransaction(tx Transaction, privateKey string) (string, error)
 	CalculateBalance(address string) int64
 }
@@ -21,8 +21,8 @@ func NewWalletService(blockChainSvc IBlockchainService) IWalletService {
 	}
 }
 
-func (ws *walletService) GenerateKeyPair() (util.KeyPair, error) {
-	return util.GenerateKeyPair()
+func (ws *walletService) GenerateKeyPair(seedPhrase string) (util.KeyPair, error) {
+	return util.GenerateKeyPair(seedPhrase)
 }
 
 func (ws *walletService) SignTransaction(tx Transaction, privateKey string) (string, error) {

@@ -10,6 +10,8 @@ import (
 
 var (
 	ChainKey                  = "CHAIN"
+	DifficultyKey             = "DIFFICULTY"
+	TransactionPoolKey        = "TRANSACTION_POOL"
 	ChannelSyncNodeKey        = "BLOCKCHAIN"
 	ChannelSyncTransactionKey = "TRANSACTION"
 	CurrentBlockCrawledKey    = "CURRENT_BLOCK_CRAWLED"

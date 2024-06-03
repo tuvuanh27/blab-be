@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"blockchain-backend/controller/dto"
 	"blockchain-backend/service"
 	"blockchain-backend/util"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,12 +28,20 @@ func NewWalletController(walletService service.IWalletService, transactionPoolSv
 }
 
 func (wc *walletController) SetupRoutes(group *gin.RouterGroup) {
-	group.GET("/", wc.generateKeyPair())
+	group.POST("/", wc.generateKeyPair())
 	group.GET("/balance/:address", wc.getBalance())
 }
 
 func (wc *walletController) generateKeyPair() func(c *gin.Context) {
 	return func(c *gin.Context) {
+		var body *dto.GenerateWalletData
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
 		// get initBalance from query
 		initBalance := c.Query("initBalance")
 		var balanceValue int64
@@ -43,7 +52,7 @@ func (wc *walletController) generateKeyPair() func(c *gin.Context) {
 			balanceValue = 1000
 		}
 
-		keyPair, err := wc.walletSvc.GenerateKeyPair()
+		keyPair, err := wc.walletSvc.GenerateKeyPair(body.SeedPhrase)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"error": err.Error(),
@@ -52,7 +61,7 @@ func (wc *walletController) generateKeyPair() func(c *gin.Context) {
 		}
 
 		// add transaction send 1000 to keyPair.Address
-		transaction := service.Transaction{
+		transaction := &service.Transaction{
 			From:      common.Address{}.Hex(),
 			To:        keyPair.Address,
 			Value:     balanceValue,

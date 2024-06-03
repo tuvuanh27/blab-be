@@ -4,6 +4,7 @@ import (
 	"blockchain-backend/controller/dto"
 	"blockchain-backend/service"
 	"blockchain-backend/util"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	"strconv"
 )
@@ -15,6 +16,8 @@ type ITransactionController interface {
 	getTransactionPool() func(c *gin.Context)
 	getTransactionHistory() func(c *gin.Context)
 	getTransaction() func(c *gin.Context)
+	verifySignature() func(c *gin.Context)
+	configTransactionPool() func(c *gin.Context)
 }
 
 type transactionController struct {
@@ -39,6 +42,60 @@ func (tc *transactionController) SetupRoutes(group *gin.RouterGroup) {
 	group.GET("/pool", tc.getTransactionPool())
 	group.GET("/history/:address", tc.getTransactionHistory())
 	group.GET("/:hash", tc.getTransaction())
+	group.POST("/verify", tc.verifySignature())
+	group.POST("/config-tx-pool", tc.configTransactionPool())
+}
+
+func (tc *transactionController) configTransactionPool() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		var body *dto.ConfigTransactionPoolData
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		if err := body.Validate(); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		tc.transactionPoolSvc.ConfigTransactionPool(service.TxPoolConfigSource(body.Type))
+
+		c.JSON(200, gin.H{
+			"message": "Transaction pool configured",
+		})
+	}
+}
+
+func (tc *transactionController) verifySignature() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		var body dto.VerifySignatureData
+
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		hash, err := hexutil.Decode(body.TxHash)
+		if err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		ok := util.VerifySignature(body.PublicKey, hash, body.Signature)
+
+		c.JSON(200, gin.H{
+			"data": ok,
+		})
+	}
 }
 
 func (tc *transactionController) signTransaction() func(c *gin.Context) {

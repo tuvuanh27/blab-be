@@ -1,0 +1,72 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/block": {
+            "get": {
+                "description": "Get blocks",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "block"
+                ],
+                "summary": "Get blocks",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/block/set-difficulty": {
+            "post": {
+                "description": "Set difficulty",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "block"
+                ],
+                "summary": "Set difficulty",
+                "parameters": [
+                    {
+                        "description": "Difficulty",
+                        "name": "difficulty",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.SetDifficultyData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "dto.SetDifficultyData": {
+            "type": "object",
+            "required": [
+                "difficulty"
+            ],
+            "properties": {
+                "difficulty": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}

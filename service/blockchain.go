@@ -6,29 +6,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/redis/go-redis/v9"
 	"log"
 	"math"
-	"reflect"
 	"strconv"
 	"strings"
 )
 
+type State string
+
+const (
+	Valid   State = "VALID"
+	Invalid State = "INVALID"
+)
+
 type Chain struct {
 	Blocks []Block `json:"blocks"`
+	//State            State   `json:"state"`
+	//BlockNumberValid int64   `json:"block_number_valid"`
 }
 
 type IBlockchainService interface {
+	Reset()
 	GetBlocks() Chain
 	GetBlock(blockNumber int64) (Block, error)
-	AddBlock(block Block)
-	IsValidChain(chain Chain) bool
+	//AddBlock(block Block)
+	IsValidChain(chain Chain) (bool, int64)
 	IsValidTransactionData(chain Chain) bool
 	ReplaceChain(chain Chain) error
 	BlockLength() int
 	GetTransactionHistory(address string) []Transaction
 	GetTransaction(transactionHash string) (Transaction, error)
-	SyncNode(pubsub *redis.PubSub)
+	//SyncNode(pubsub *redis.PubSub)
+	ReplaceBlock(block *Block)
+	NewBlock(data, miner string, position int64) (*Block, error)
 }
 
 type blockchainService struct {
@@ -40,9 +50,10 @@ type blockchainService struct {
 func NewBlockchainService(blockService IBlockService, transactionPoolService ITransactionPoolService, chain Chain) IBlockchainService {
 	if len(chain.Blocks) == 0 {
 		chain = Chain{
-			Blocks: []Block{blockService.Genesis()},
+			Blocks: []Block{},
+			//State:            Valid,
+			//BlockNumberValid: 0,
 		}
-
 		blockChainBytes, _ := json.Marshal(chain)
 		redisPkg.RedisService.Set(redisPkg.ChainKey, string(blockChainBytes))
 	}
@@ -52,6 +63,38 @@ func NewBlockchainService(blockService IBlockService, transactionPoolService ITr
 		blockService:           blockService,
 		transactionPoolService: transactionPoolService,
 	}
+}
+
+func (bls *blockchainService) NewBlock(data, miner string, position int64) (*Block, error) {
+	block, err := bls.blockService.NewBlock(bls.chain.Blocks[len(bls.chain.Blocks)-1], bls.transactionPoolService.GetTransactions(), data, miner, -1)
+	if err != nil {
+		return nil, err
+	}
+
+	bls.ReplaceBlock(block)
+	return block, nil
+}
+
+func (bls *blockchainService) ReplaceBlock(block *Block) {
+	for i, b := range bls.chain.Blocks {
+		if b.BlockNumber == block.BlockNumber {
+			bls.chain.Blocks[i] = *block
+		}
+	}
+}
+
+func (bls *blockchainService) Reset() {
+	bls.chain = Chain{
+		Blocks: []Block{*bls.blockService.Genesis(0, bls.blockService.GetDifficulty())},
+	}
+
+	blockChainBytes, _ := json.Marshal(bls.chain)
+	redisPkg.RedisService.Set(redisPkg.ChainKey, string(blockChainBytes))
+
+	redisPkg.RedisService.Publish(redisPkg.ChannelSyncNodeKey, string(blockChainBytes))
+
+	// clear transaction pool
+	bls.transactionPoolService.Clear()
 }
 
 func (bls *blockchainService) GetBlocks() Chain {
@@ -68,21 +111,21 @@ func (bls *blockchainService) GetBlock(blockNumber int64) (Block, error) {
 	return Block{}, fmt.Errorf("block not found")
 }
 
-func (bls *blockchainService) AddBlock(block Block) {
-	bls.chain.Blocks = append(bls.chain.Blocks, block)
-}
+//func (bls *blockchainService) AddBlock(block Block) {
+//	bls.chain.Blocks = append(bls.chain.Blocks, block)
+//}
 
-func (bls *blockchainService) IsValidChain(chain Chain) bool {
-	if !reflect.DeepEqual(chain.Blocks[0], bls.blockService.Genesis()) {
-		log.Println("Genesis block is invalid")
-		return false
-	}
+func (bls *blockchainService) IsValidChain(chain Chain) (bool, int64) {
+	//if !reflect.DeepEqual(chain.Blocks[0], bls.blockService.Genesis()) {
+	//	log.Println("Genesis block is invalid")
+	//	return false
+	//}
 
 	for i := 1; i < len(chain.Blocks); i++ {
 		lastHash := chain.Blocks[i-1].Hash
 		lastDifficulty := chain.Blocks[i-1].Difficulty
 		if lastHash != chain.Blocks[i].ParentHash {
-			return false
+			return false, chain.Blocks[i].BlockNumber
 		}
 
 		var blockNumber = chain.Blocks[i].BlockNumber
@@ -95,16 +138,16 @@ func (bls *blockchainService) IsValidChain(chain Chain) bool {
 		validHash := util.CryptoHash([]byte(strconv.FormatInt(blockNumber, 10) + lastHash + string(rune(nonce)) + strconv.FormatInt(difficulty, 10) + strconv.FormatInt(timestamp, 10) + miner + string(data)))
 		if strings.Compare(validHash.Hex(), chain.Blocks[i].Hash) != 0 {
 			log.Println("Invalid hash at block ", i)
-			return false
+			return false, chain.Blocks[i].BlockNumber
 		}
 
 		if math.Abs(float64(lastDifficulty-difficulty)) > 1 {
 			log.Println("Invalid difficulty at block ", i)
-			return false
+			return false, chain.Blocks[i].BlockNumber
 		}
 	}
 
-	return true
+	return true, int64(len(chain.Blocks))
 }
 
 func (bls *blockchainService) IsValidTransactionData(chain Chain) bool {
@@ -137,16 +180,15 @@ func (bls *blockchainService) ReplaceChain(chain Chain) error {
 		return fmt.Errorf("received chain is not longer than the current chain")
 	}
 
-	if !bls.IsValidChain(chain) {
+	if isValid, _ := bls.IsValidChain(chain); !isValid {
 		return fmt.Errorf("received chain is invalid")
 	}
-	log.Println("Replace chain")
 	bls.chain = chain
 
 	blockChainBytes, _ := json.Marshal(chain)
 	redisPkg.RedisService.Set(redisPkg.ChainKey, string(blockChainBytes))
 
-	redisPkg.RedisService.Publish(redisPkg.ChannelSyncNodeKey, string(blockChainBytes))
+	//redisPkg.RedisService.Publish(redisPkg.ChannelSyncNodeKey, string(blockChainBytes))
 	return nil
 }
 
@@ -178,45 +220,45 @@ func (bls *blockchainService) GetTransaction(transactionHash string) (Transactio
 	return Transaction{}, fmt.Errorf("transaction not found")
 }
 
-func (bls *blockchainService) SyncNode(pubsub *redis.PubSub) {
-	defer func(pubsub *redis.PubSub) {
-		err := pubsub.Close()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}(pubsub)
-
-	for {
-		msg, err := pubsub.ReceiveMessage(redisPkg.Ctx)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		log.Println("Received message: ", msg.Payload, " from channel: ", msg.Channel)
-
-		if strings.Compare(msg.Channel, redisPkg.ChannelSyncNodeKey) == 0 {
-
-			var chain Chain
-			err = json.Unmarshal([]byte(msg.Payload), &chain)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			err = bls.ReplaceChain(chain)
-			if err != nil {
-				log.Fatalln(err)
-			}
-		}
-
-		if strings.Compare(msg.Channel, redisPkg.ChannelSyncTransactionKey) == 0 {
-
-			var transaction Transaction
-			err = json.Unmarshal([]byte(msg.Payload), &transaction)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			bls.transactionPoolService.SetTransaction(transaction)
-		}
-	}
-
-}
+//func (bls *blockchainService) SyncNode(pubsub *redis.PubSub) {
+//	defer func(pubsub *redis.PubSub) {
+//		err := pubsub.Close()
+//		if err != nil {
+//			log.Fatalln(err)
+//		}
+//	}(pubsub)
+//
+//	for {
+//		msg, err := pubsub.ReceiveMessage(redisPkg.Ctx)
+//		if err != nil {
+//			log.Fatalln(err)
+//		}
+//		log.Println("Received message: ", msg.Payload, " from channel: ", msg.Channel)
+//
+//		if strings.Compare(msg.Channel, redisPkg.ChannelSyncNodeKey) == 0 {
+//
+//			var chain Chain
+//			err = json.Unmarshal([]byte(msg.Payload), &chain)
+//			if err != nil {
+//				log.Fatalln(err)
+//			}
+//
+//			err = bls.ReplaceChain(chain)
+//			if err != nil {
+//				log.Fatalln(err)
+//			}
+//		}
+//
+//		if strings.Compare(msg.Channel, redisPkg.ChannelSyncTransactionKey) == 0 {
+//
+//			var transaction Transaction
+//			err = json.Unmarshal([]byte(msg.Payload), &transaction)
+//			if err != nil {
+//				log.Fatalln(err)
+//			}
+//
+//			bls.transactionPoolService.SetTransaction(transaction)
+//		}
+//	}
+//
+//}

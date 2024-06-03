@@ -14,10 +14,13 @@ type KeyPair struct {
 	Address    string `json:"address"`
 }
 
-func GenerateKeyPair() (KeyPair, error) {
-	privateKey, err := crypto.GenerateKey()
-	if err != nil {
-		return KeyPair{}, err
+func GenerateKeyPair(seedPhrase string) (KeyPair, error) {
+
+	var privateKey *ecdsa.PrivateKey
+	if seedPhrase == "" {
+		privateKey, _ = crypto.GenerateKey()
+	} else {
+		privateKey = crypto.ToECDSAUnsafe([]byte(seedPhrase))
 	}
 
 	privateKeyBytes := crypto.FromECDSA(privateKey)

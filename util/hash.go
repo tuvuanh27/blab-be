@@ -1,6 +1,8 @@
 package util
 
 import (
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
@@ -8,6 +10,31 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"strings"
 )
+
+type HashAlgorithm string
+
+const (
+	SHA256    HashAlgorithm = "SHA256"
+	SHA512    HashAlgorithm = "SHA512"
+	Keccak256 HashAlgorithm = "Keccak256"
+)
+
+func Hash(data []byte, algorithm HashAlgorithm) []byte {
+	switch algorithm {
+	case SHA256:
+		hash := sha256.New()
+		hash.Write(data)
+		return hash.Sum(nil)
+	case SHA512:
+		hash := sha512.New()
+		hash.Write(data)
+		return hash.Sum(nil)
+	case Keccak256:
+		return CryptoHash(data).Bytes()
+	default:
+		return nil
+	}
+}
 
 func CryptoHash(data []byte) common.Hash {
 	return crypto.Keccak256Hash(data)

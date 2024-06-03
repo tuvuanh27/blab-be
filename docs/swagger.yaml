@@ -1,0 +1,45 @@
+definitions:
+  dto.SetDifficultyData:
+    properties:
+      difficulty:
+        type: integer
+    required:
+    - difficulty
+    type: object
+info:
+  contact: {}
+paths:
+  /block:
+    get:
+      consumes:
+      - application/json
+      description: Get blocks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Get blocks
+      tags:
+      - block
+  /block/set-difficulty:
+    post:
+      consumes:
+      - application/json
+      description: Set difficulty
+      parameters:
+      - description: Difficulty
+        in: body
+        name: difficulty
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SetDifficultyData'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+      summary: Set difficulty
+      tags:
+      - block
+swagger: "2.0"

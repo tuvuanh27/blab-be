@@ -1,7 +1,7 @@
 package service
 
 import (
-	"blockchain-backend/infras/redis"
+	redisPkg "blockchain-backend/infras/redis"
 	"blockchain-backend/util"
 	"encoding/json"
 	"fmt"
@@ -20,35 +20,54 @@ type Block struct {
 	Timestamp    int64         `json:"timestamp"`
 	Miner        string        `json:"miner"`
 	Transactions []Transaction `json:"transactions"`
+	Data         string        `json:"data"`
 }
 
 type IBlockService interface {
-	Genesis() Block
+	Genesis(nonce, difficulty int64) *Block
 	adjustDifficulty(originalBlock Block, timestamp int64) int64
-	MineBlock(lastBlock Block, transactions []Transaction, miner string) (Block, error)
+	NewBlock(lastBlock Block, transactions []Transaction, data, miner string, position int64) (*Block, error)
+	SetDifficulty(difficulty int64)
+	GetDifficulty() int64
+	HashBlock(block *Block, lastHash string) string
 }
 
 type blockService struct {
-	initDifficulty     int64
+	difficulty         int64
 	mineRate           int64
 	transactionPoolSvc ITransactionPoolService
 }
 
 func NewBlockService(transactionPoolSvc ITransactionPoolService) IBlockService {
 	return &blockService{
-		initDifficulty:     10,
+		difficulty:         10,
 		mineRate:           10000,
 		transactionPoolSvc: transactionPoolSvc,
 	}
 }
 
-func (bs *blockService) Genesis() Block {
-	return Block{
+func (bs *blockService) SetDifficulty(difficulty int64) {
+	bs.difficulty = difficulty
+	redisPkg.RedisService.Set(redisPkg.DifficultyKey, strconv.FormatInt(difficulty, 10))
+}
+
+func (bs *blockService) GetDifficulty() int64 {
+	return bs.difficulty
+}
+
+func (bs *blockService) HashBlock(block *Block, lastHash string) string {
+	transaction, _ := json.Marshal(block.Transactions)
+
+	return util.CryptoHash([]byte(strconv.FormatInt(block.BlockNumber, 10) + lastHash + string(rune(block.Nonce)) + strconv.FormatInt(block.Difficulty, 10) + strconv.FormatInt(block.Timestamp, 10) + block.Miner + string(transaction) + block.Data)).Hex()
+}
+
+func (bs *blockService) Genesis(nonce, difficulty int64) *Block {
+	return &Block{
 		BlockNumber:  1,
 		Hash:         "0x",
 		ParentHash:   "0x",
-		Nonce:        0,
-		Difficulty:   bs.initDifficulty,
+		Nonce:        nonce,
+		Difficulty:   difficulty,
 		Timestamp:    0,
 		Miner:        "0x",
 		Transactions: []Transaction{},
@@ -68,49 +87,25 @@ func (bs *blockService) adjustDifficulty(originalBlock Block, timestamp int64) i
 	return difficulty + 1
 }
 
-func (bs *blockService) MineBlock(lastBlock Block, transactions []Transaction, miner string) (Block, error) {
+// NewBlock creates a new block, if position is -1, the block will be mined with all transactions
+func (bs *blockService) NewBlock(lastBlock Block, transactions []Transaction, data, miner string, position int64) (*Block, error) {
 	if len(transactions) == 0 {
-		return Block{}, fmt.Errorf("no transactions to mine")
+		return nil, fmt.Errorf("no transactions to mine")
+	}
+
+	if position == -1 {
+		position = lastBlock.BlockNumber + 1
 	}
 
 	lastHash := lastBlock.Hash
-	blockNumber := lastBlock.BlockNumber + 1
-	difficulty := lastBlock.Difficulty
+	blockNumber := position
+	difficulty := bs.difficulty
 	nonce := 0
 	var timestamp int64 = 0
 	var blockHash string = "0x"
 	var binary string
-	data, _ := json.Marshal(transactions)
 
-	for {
-		nonce += 1
-		timestamp = time.Now().Unix() // time in seconds
-		difficulty = bs.adjustDifficulty(lastBlock, timestamp)
-
-		blockHash = (util.CryptoHash([]byte(strconv.FormatInt(blockNumber, 10) + lastHash + string(rune(nonce)) + strconv.FormatInt(difficulty, 10) + strconv.FormatInt(timestamp, 10) + miner + string(data)))).Hex()
-
-		binary, _ = util.HexToBin(blockHash)
-
-		if binary[:difficulty] == strings.Repeat("0", int(difficulty)) {
-			break
-		}
-		nonce++
-
-	}
-
-	bs.transactionPoolSvc.Clear()
-
-	// sync to redis
-	chain := Chain{}
-	blockChain := redis.RedisService.Get(redis.ChainKey)
-	if blockChain != "" {
-		err := json.Unmarshal([]byte(blockChain), &chain)
-		if err != nil {
-			return Block{}, err
-		}
-	}
-
-	newBlock := Block{
+	newBlock := &Block{
 		BlockNumber:  blockNumber,
 		Hash:         blockHash,
 		Binary:       binary,
@@ -120,13 +115,46 @@ func (bs *blockService) MineBlock(lastBlock Block, transactions []Transaction, m
 		Timestamp:    timestamp,
 		Miner:        miner,
 		Transactions: transactions,
+		Data:         data,
 	}
 
-	chain.Blocks = append(chain.Blocks, newBlock)
-	blockChainBytes, _ := json.Marshal(chain)
-	redis.RedisService.Set(redis.ChainKey, string(blockChainBytes))
+	for {
+		nonce += 1
+		timestamp = time.Now().Unix() // time in seconds
+		//difficulty = bs.adjustDifficulty(lastBlock, timestamp)
 
-	redis.RedisService.Publish(redis.ChannelSyncNodeKey, string(blockChainBytes))
+		blockHash = bs.HashBlock(newBlock, lastHash)
+
+		binary, _ = util.HexToBin(blockHash)
+
+		if binary[:difficulty] == strings.Repeat("0", int(difficulty)) {
+			break
+		}
+		nonce++
+
+	}
+	newBlock.Hash = blockHash
+	newBlock.Nonce = int64(nonce)
+	newBlock.Timestamp = timestamp
+	newBlock.Binary = binary
+
+	bs.transactionPoolSvc.Clear()
+
+	// sync to redis
+	//chain := Chain{}
+	//blockChain := redis.RedisService.Get(redis.ChainKey)
+	//if blockChain != "" {
+	//	err := json.Unmarshal([]byte(blockChain), &chain)
+	//	if err != nil {
+	//		return Block{}, err
+	//	}
+	//}
+	//
+	//chain.Blocks = append(chain.Blocks, *newBlock)
+	//blockChainBytes, _ := json.Marshal(chain)
+	//redis.RedisService.Set(redis.ChainKey, string(blockChainBytes))
+
+	//redis.RedisService.Publish(redis.ChannelSyncNodeKey, string(blockChainBytes))
 
 	return newBlock, nil
 }

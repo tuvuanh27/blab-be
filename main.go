@@ -3,6 +3,7 @@ package main
 import (
 	"blockchain-backend/config"
 	"blockchain-backend/controller"
+	docs "blockchain-backend/docs"
 	"blockchain-backend/infras/redis"
 	"blockchain-backend/service"
 	"encoding/json"
@@ -10,6 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"log"
 	"time"
 )
@@ -47,6 +50,8 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	docs.SwaggerInfo.BasePath = "/"
+
 	engine.GET("/", func(c *gin.Context) {
 
 		c.JSON(200, gin.H{
@@ -69,20 +74,20 @@ func main() {
 	blockSvc := service.NewBlockService(transactionPoolSvc)
 	blockChainSvc := service.NewBlockchainService(blockSvc, transactionPoolSvc, chain)
 	walletSvc := service.NewWalletService(blockChainSvc)
-	ganacheSvc := service.NewGanacheService()
+	//ganacheSvc := service.NewGanacheService()
 
 	// sync node
-	go func() {
-		blockChainSvc.SyncNode(redis.RedisService.Subscribe(redis.ChannelSyncNodeKey))
-	}()
+	//go func() {
+	//	blockChainSvc.SyncNode(redis.RedisService.Subscribe(redis.ChannelSyncNodeKey))
+	//}()
 
 	// cron crawl block
-	go func() {
-		err := ganacheSvc.CrawlBlock()
-		if err != nil {
-			return
-		}
-	}()
+	//go func() {
+	//	err := ganacheSvc.CrawlBlock()
+	//	if err != nil {
+	//		return
+	//	}
+	//}()
 
 	walletController := controller.NewWalletController(walletSvc, transactionPoolSvc)
 	transactionController := controller.NewTransactionController(transactionSvc, transactionPoolSvc, blockChainSvc, walletSvc)
@@ -99,6 +104,7 @@ func main() {
 	blockController.SetupRoutes(blockGroup)
 	ganacheController.SetupRoutes(ganacheGroup)
 
+	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	if err := engine.Run(
 		":" + port,
 	); err != nil {

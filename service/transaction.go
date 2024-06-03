@@ -1,12 +1,10 @@
 package service
 
 import (
-	"blockchain-backend/infras/redis"
 	"blockchain-backend/util"
-	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"log"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"strconv"
 	"strings"
 )
@@ -22,10 +20,10 @@ type Transaction struct {
 }
 
 type ITransactionService interface {
-	ValidTransaction(transaction Transaction, pubKey string) bool
-	TxHash(transaction Transaction) string
-	RewardTransaction(miner string) Transaction
-	CreateTransaction(from string, to string, value int64, data string, timestamp int64, signature string, pubKey string) (Transaction, error)
+	ValidTransaction(transaction *Transaction, pubKey string) bool
+	TxHash(transaction *Transaction) string
+	RewardTransaction(miner string) *Transaction
+	CreateTransaction(from string, to string, value int64, data string, timestamp int64, signature string, pubKey string) (*Transaction, error)
 }
 
 type transactionService struct {
@@ -35,11 +33,11 @@ func NewTransactionService() ITransactionService {
 	return &transactionService{}
 }
 
-func (ts *transactionService) TxHash(transaction Transaction) string {
+func (ts *transactionService) TxHash(transaction *Transaction) string {
 	return util.CryptoHash([]byte(transaction.From + transaction.To + strconv.FormatInt(transaction.Value, 10) + transaction.Data + strconv.FormatInt(transaction.Timestamp, 10))).Hex()
 }
 
-func (ts *transactionService) ValidTransaction(transaction Transaction, pubKey string) bool {
+func (ts *transactionService) ValidTransaction(transaction *Transaction, pubKey string) bool {
 	// check reward transaction
 	if strings.Compare(transaction.From, common.Address{}.Hex()) == 0 {
 		return true
@@ -65,7 +63,10 @@ func (ts *transactionService) ValidTransaction(transaction Transaction, pubKey s
 		return false
 	}
 
-	hashBytes := util.CryptoHash([]byte(transaction.From + transaction.To + strconv.FormatInt(transaction.Value, 10) + transaction.Data + strconv.FormatInt(transaction.Timestamp, 10))).Bytes()
+	hashBytes, err := hexutil.Decode(transaction.Hash)
+	if err != nil {
+		return false
+	}
 
 	if !util.VerifySignature(
 		pubKey,
@@ -78,8 +79,8 @@ func (ts *transactionService) ValidTransaction(transaction Transaction, pubKey s
 	return true
 }
 
-func (ts *transactionService) RewardTransaction(miner string) Transaction {
-	transaction := Transaction{
+func (ts *transactionService) RewardTransaction(miner string) *Transaction {
+	transaction := &Transaction{
 		From:      common.Address{}.Hex(),
 		To:        miner,
 		Value:     util.MinersReward,
@@ -92,8 +93,8 @@ func (ts *transactionService) RewardTransaction(miner string) Transaction {
 	return transaction
 }
 
-func (ts *transactionService) CreateTransaction(from string, to string, value int64, data string, timestamp int64, signature string, pubKey string) (Transaction, error) {
-	transaction := Transaction{
+func (ts *transactionService) CreateTransaction(from string, to string, value int64, data string, timestamp int64, signature string, pubKey string) (*Transaction, error) {
+	transaction := &Transaction{
 		From:      from,
 		To:        to,
 		Value:     value,
@@ -101,15 +102,15 @@ func (ts *transactionService) CreateTransaction(from string, to string, value in
 		Timestamp: timestamp,
 		Signature: signature,
 	}
+	transaction.Hash = ts.TxHash(transaction)
 
 	if !ts.ValidTransaction(transaction, pubKey) {
-		return Transaction{}, fmt.Errorf("invalid transaction")
+		return nil, fmt.Errorf("invalid transaction")
 	}
 
-	transaction.Hash = ts.TxHash(transaction)
-	transactionBytes, _ := json.Marshal(transaction)
-	log.Println("Publishing transaction to redis", transaction)
-	redis.RedisService.Publish(redis.ChannelSyncTransactionKey, string(transactionBytes))
+	//transactionBytes, _ := json.Marshal(transaction)
+	//log.Println("Publishing transaction to redis", transaction)
+	//redis.RedisService.Publish(redis.ChannelSyncTransactionKey, string(transactionBytes))
 
 	return transaction, nil
 }

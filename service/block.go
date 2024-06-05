@@ -93,6 +93,13 @@ func (bs *blockService) NewBlock(lastBlock Block, transactions []Transaction, da
 		return nil, fmt.Errorf("no transactions to mine")
 	}
 
+	if position == -1 {
+		position = lastBlock.BlockNumber + 1
+	}
+	if position == 1 && lastBlock.BlockNumber == 1 {
+		position = 1
+	}
+
 	lastHash := lastBlock.Hash
 	blockNumber := position
 	difficulty := bs.difficulty

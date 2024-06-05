@@ -66,11 +66,15 @@ func NewBlockchainService(blockService IBlockService, transactionPoolService ITr
 }
 
 func (bls *blockchainService) NewBlock(data, miner string, position int64) (*Block, error) {
+	var lastBlockNumber int64 = position - 2
 	if position == -1 {
-		position = int64(len(bls.chain.Blocks) - 1)
+		lastBlockNumber = int64(len(bls.chain.Blocks) - 1)
 	}
-	lastBlock := bls.chain.Blocks[position]
-	block, err := bls.blockService.NewBlock(lastBlock, bls.transactionPoolService.GetTransactions(), data, miner, lastBlock.BlockNumber+1)
+	if position == 1 {
+		lastBlockNumber = 0
+	}
+	lastBlock := bls.chain.Blocks[lastBlockNumber]
+	block, err := bls.blockService.NewBlock(lastBlock, bls.transactionPoolService.GetTransactions(), data, miner, position)
 	if err != nil {
 		return nil, err
 	}

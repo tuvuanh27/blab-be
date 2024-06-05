@@ -19,6 +19,7 @@ type ITransactionPoolService interface {
 	GetTransactionPool() map[string]Transaction
 	GetTransactions() []Transaction
 	ConfigTransactionPool(sourceType TxPoolConfigSource)
+	GetConfigTransactionPool() TxPoolConfigSource
 }
 
 type transactionPoolService struct {
@@ -32,6 +33,10 @@ func NewTransactionPoolService(transactionService ITransactionService) ITransact
 		transactionMap:     make(map[string]Transaction),
 		transactionService: transactionService,
 	}
+}
+
+func (tps *transactionPoolService) GetConfigTransactionPool() TxPoolConfigSource {
+	return tps.sourceType
 }
 
 func (tps *transactionPoolService) ConfigTransactionPool(sourceType TxPoolConfigSource) {

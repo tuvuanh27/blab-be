@@ -18,6 +18,7 @@ type ITransactionController interface {
 	getTransaction() func(c *gin.Context)
 	verifySignature() func(c *gin.Context)
 	configTransactionPool() func(c *gin.Context)
+	getConfigTransactionPool() func(c *gin.Context)
 }
 
 type transactionController struct {
@@ -44,6 +45,16 @@ func (tc *transactionController) SetupRoutes(group *gin.RouterGroup) {
 	group.GET("/:hash", tc.getTransaction())
 	group.POST("/verify", tc.verifySignature())
 	group.POST("/config-tx-pool", tc.configTransactionPool())
+	group.GET("/get-config-tx-pool", tc.getConfigTransactionPool())
+}
+
+func (tc *transactionController) getConfigTransactionPool() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"data": tc.transactionPoolSvc.GetConfigTransactionPool(),
+		})
+	}
+
 }
 
 func (tc *transactionController) configTransactionPool() func(c *gin.Context) {

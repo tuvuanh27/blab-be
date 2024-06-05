@@ -93,10 +93,6 @@ func (bs *blockService) NewBlock(lastBlock Block, transactions []Transaction, da
 		return nil, fmt.Errorf("no transactions to mine")
 	}
 
-	if position == -1 {
-		position = lastBlock.BlockNumber + 1
-	}
-
 	lastHash := lastBlock.Hash
 	blockNumber := position
 	difficulty := bs.difficulty
@@ -122,6 +118,8 @@ func (bs *blockService) NewBlock(lastBlock Block, transactions []Transaction, da
 		nonce += 1
 		timestamp = time.Now().Unix() // time in seconds
 		//difficulty = bs.adjustDifficulty(lastBlock, timestamp)
+		newBlock.Timestamp = timestamp
+		newBlock.Nonce = int64(nonce)
 
 		blockHash = bs.HashBlock(newBlock, lastHash)
 
@@ -134,11 +132,13 @@ func (bs *blockService) NewBlock(lastBlock Block, transactions []Transaction, da
 
 	}
 	newBlock.Hash = blockHash
-	newBlock.Nonce = int64(nonce)
-	newBlock.Timestamp = timestamp
 	newBlock.Binary = binary
 
 	bs.transactionPoolSvc.Clear()
+
+	// log json block
+	blockJson, _ := json.Marshal(newBlock)
+	fmt.Println(string(blockJson))
 
 	// sync to redis
 	//chain := Chain{}

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"log"
-	"math"
 	"strconv"
 	"strings"
 )
@@ -142,28 +141,25 @@ func (bls *blockchainService) IsValidChain(chain Chain) (bool, int64) {
 
 	for i := 1; i < len(chain.Blocks); i++ {
 		lastHash := chain.Blocks[i-1].Hash
-		lastDifficulty := chain.Blocks[i-1].Difficulty
+		//lastDifficulty := chain.Blocks[i-1].Difficulty
 		if lastHash != chain.Blocks[i].ParentHash {
 			return false, chain.Blocks[i].BlockNumber
 		}
 
-		var blockNumber = chain.Blocks[i].BlockNumber
-		var difficulty = chain.Blocks[i].Difficulty
-		var nonce = chain.Blocks[i].Nonce
-		var timestamp = chain.Blocks[i].Timestamp
-		var miner = chain.Blocks[i].Miner
-		var data, _ = json.Marshal(chain.Blocks[i].Transactions)
+		block := chain.Blocks[i]
 
-		validHash := util.CryptoHash([]byte(strconv.FormatInt(blockNumber, 10) + lastHash + string(rune(nonce)) + strconv.FormatInt(difficulty, 10) + strconv.FormatInt(timestamp, 10) + miner + string(data)))
-		if strings.Compare(validHash.Hex(), chain.Blocks[i].Hash) != 0 {
+		transaction, _ := json.Marshal(block.Transactions)
+
+		validHash := util.CryptoHash([]byte(strconv.FormatInt(block.BlockNumber, 10) + lastHash + string(rune(block.Nonce)) + strconv.FormatInt(block.Difficulty, 10) + strconv.FormatInt(block.Timestamp, 10) + block.Miner + string(transaction) + block.Data)).Hex()
+		if strings.Compare(validHash, chain.Blocks[i].Hash) != 0 {
 			log.Println("Invalid hash at block ", i)
 			return false, chain.Blocks[i].BlockNumber
 		}
 
-		if math.Abs(float64(lastDifficulty-difficulty)) > 1 {
-			log.Println("Invalid difficulty at block ", i)
-			return false, chain.Blocks[i].BlockNumber
-		}
+		//if math.Abs(float64(lastDifficulty-difficulty)) > 1 {
+		//	log.Println("Invalid difficulty at block ", i)
+		//	return false, chain.Blocks[i].BlockNumber
+		//}
 	}
 
 	return true, int64(len(chain.Blocks))

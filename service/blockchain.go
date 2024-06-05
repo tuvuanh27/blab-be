@@ -77,7 +77,17 @@ func (bls *blockchainService) NewBlock(data, miner string, position int64) (*Blo
 
 func (bls *blockchainService) ReplaceBlock(block *Block) {
 	blockNumber := block.BlockNumber
-	bls.chain.Blocks[blockNumber] = *block
+	if blockNumber == 1 {
+		bls.chain.Blocks = []Block{*block}
+	} else {
+		for i, b := range bls.chain.Blocks {
+			if b.BlockNumber == blockNumber {
+				bls.chain.Blocks[i] = *block
+				break
+			}
+		}
+
+	}
 }
 
 func (bls *blockchainService) Reset() {

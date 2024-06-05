@@ -204,7 +204,7 @@ func (bc *blockController) mine() func(c *gin.Context) {
 		rewardTransaction := bc.transactionSvc.RewardTransaction(body.MinerAddress)
 		bc.transactionPoolSvc.SetTransaction(rewardTransaction)
 
-		newBlock, err := bc.blockChainSvc.NewBlock(body.Data, body.MinerAddress, position)
+		_, err := bc.blockChainSvc.NewBlock(body.Data, body.MinerAddress, position)
 		if err != nil {
 			c.JSON(400, gin.H{
 				"error": err.Error(),
@@ -214,7 +214,7 @@ func (bc *blockController) mine() func(c *gin.Context) {
 
 		c.JSON(200, gin.H{
 			"message": "mined block successfully",
-			"data":    newBlock,
+			"data":    bc.blockChainSvc.GetBlocks(),
 		})
 	}
 }

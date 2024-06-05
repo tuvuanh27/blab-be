@@ -88,6 +88,9 @@ func (bls *blockchainService) ReplaceBlock(block *Block) {
 	log.Println("blockNumber: ", block)
 	if blockNumber == 1 {
 		bls.chain.Blocks = []Block{*block}
+	}
+	if blockNumber > int64(len(bls.chain.Blocks)) {
+		bls.chain.Blocks = append(bls.chain.Blocks, *block)
 	} else {
 		for i, b := range bls.chain.Blocks {
 			if b.BlockNumber == blockNumber {

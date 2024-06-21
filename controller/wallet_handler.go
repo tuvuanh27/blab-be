@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"strconv"
+	"time"
 )
 
 type IWalletController interface {
@@ -60,13 +61,17 @@ func (wc *walletController) generateKeyPair() func(c *gin.Context) {
 			return
 		}
 
+		data := util.CryptoHash([]byte(common.Address{}.Hex() + keyPair.Address + strconv.FormatInt(balanceValue, 10) + "" + strconv.FormatInt(time.Now().Unix(), 10))).Bytes()
+		signature, _ := util.Sign(data, keyPair.PrivateKey)
+
 		// add transaction send 1000 to keyPair.Address
 		transaction := &service.Transaction{
 			From:      common.Address{}.Hex(),
 			To:        keyPair.Address,
 			Value:     balanceValue,
 			Data:      "",
-			Timestamp: 0,
+			Timestamp: time.Now().Unix(),
+			Signature: signature,
 		}
 
 		transaction.Hash = util.CryptoHash([]byte(transaction.From + transaction.To + strconv.FormatInt(transaction.Value, 10) + transaction.Data + strconv.FormatInt(transaction.Timestamp, 10))).Hex()

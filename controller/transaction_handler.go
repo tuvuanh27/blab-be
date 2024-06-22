@@ -122,7 +122,7 @@ func (tc *transactionController) signTransaction() func(c *gin.Context) {
 
 		if body.Value > tc.walletSvc.CalculateBalance(body.From) {
 			c.JSON(400, gin.H{
-				"error": "Insufficient balance",
+				"error": "Số dư không đủ, vui lòng nhập thấp hơn" + strconv.FormatInt(tc.walletSvc.CalculateBalance(body.From), 10),
 			})
 			return
 		}

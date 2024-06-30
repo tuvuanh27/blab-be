@@ -153,6 +153,13 @@ func (tc *transactionController) createTransaction() func(c *gin.Context) {
 			return
 		}
 
+		if err := body.Validate(); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
 		transaction, err := tc.transactionSvc.CreateTransaction(body.From, body.To, body.Value, body.Data, body.Timestamp, body.Signature, body.PublicKey)
 		if err != nil {
 			c.JSON(400, gin.H{

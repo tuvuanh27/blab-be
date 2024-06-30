@@ -31,6 +31,18 @@ type ConfigTransactionPoolData struct {
 	Type string `json:"type" binding:"required"`
 }
 
+func (c *CreateTransactionRequest) Validate() error {
+	if c.Value <= 0 {
+		return fmt.Errorf("value must be greater than 0")
+	}
+
+	if c.From == c.To {
+		return fmt.Errorf("from and to must be different")
+	}
+
+	return nil
+}
+
 func (c *ConfigTransactionPoolData) Validate() error {
 	// validate type must be Mempool or Redis
 	if c.Type != "Mempool" && c.Type != "Redis" {

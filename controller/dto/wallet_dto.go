@@ -24,12 +24,12 @@ func (d *ImportAccountData) Validate() error {
 
 	// Check if the private key is a valid hex string
 	if _, err := hex.DecodeString(privateKey); err != nil {
-		return errors.New("invalid private key: not a valid hex string")
+		return errors.New("private key không hợp lệ: not a valid hex string")
 	}
 
 	// Check if the private key length is 64 characters (32 bytes)
 	if len(privateKey) != 64 {
-		return errors.New("invalid private key: must be 64 characters long")
+		return errors.New("private key không hợp lệ: must be 64 characters long")
 	}
 
 	// Additional checks could be added here, such as validating that the key is within the Ethereum private key range

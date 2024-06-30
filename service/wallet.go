@@ -42,6 +42,9 @@ func (ws *walletService) CalculateAllBalances() map[string]int64 {
 		}
 	}
 
+	// remove address 0x0000000000000000000000000000000000000000
+	delete(balances, "0x0000000000000000000000000000000000000000")
+
 	return balances
 }
 

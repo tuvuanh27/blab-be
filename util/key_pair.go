@@ -75,7 +75,7 @@ func GetKeypairFromPrivateKey(privateKey string) (KeyPair, error) {
 	address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
 
 	return KeyPair{
-		PrivateKey: privateKey,
+		PrivateKey: privateKey[2:],
 		PublicKey:  hexutil.Encode(publicKeyBytes)[4:],
 		Address:    address,
 	}, nil

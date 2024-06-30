@@ -14,6 +14,8 @@ type IWalletController interface {
 	SetupRoutes(group *gin.RouterGroup)
 	generateKeyPair() func(c *gin.Context)
 	getBalance() func(c *gin.Context)
+	getAddressesBalance() func(c *gin.Context)
+	importAccount() func(c *gin.Context)
 }
 
 type walletController struct {
@@ -31,6 +33,49 @@ func NewWalletController(walletService service.IWalletService, transactionPoolSv
 func (wc *walletController) SetupRoutes(group *gin.RouterGroup) {
 	group.POST("/", wc.generateKeyPair())
 	group.GET("/balance/:address", wc.getBalance())
+	group.GET("/balance", wc.getAddressesBalance())
+	group.POST("/import", wc.importAccount())
+}
+
+func (wc *walletController) importAccount() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		var body *dto.ImportAccountData
+
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		if err := body.Validate(); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		keyPair, err := util.GetKeypairFromPrivateKey(body.PrivateKey)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"data": keyPair,
+		})
+	}
+}
+
+func (wc *walletController) getAddressesBalance() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		balances := wc.walletSvc.CalculateAllBalances()
+		c.JSON(200, gin.H{
+			"data": balances,
+		})
+	}
 }
 
 func (wc *walletController) generateKeyPair() func(c *gin.Context) {

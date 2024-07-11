@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Transaction struct {
@@ -85,7 +86,7 @@ func (ts *transactionService) RewardTransaction(miner string) *Transaction {
 		To:        miner,
 		Value:     util.MinersReward,
 		Data:      "",
-		Timestamp: 0,
+		Timestamp: time.Now().Unix(),
 	}
 
 	transaction.Hash = ts.TxHash(transaction)
